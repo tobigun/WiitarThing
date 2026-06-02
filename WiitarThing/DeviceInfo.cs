@@ -63,7 +63,6 @@ namespace WiitarThing
             var result = new List<DeviceInfo>();
             Guid guid;
             int index = 0;
-            SafeFileHandle handle;
 
             // Get GUID of the HID class
             HidD_GetHidGuid(out guid);
@@ -76,52 +75,29 @@ namespace WiitarThing
             // Step through all devices
             while (SetupDiEnumDeviceInterfaces(hDevInfo, IntPtr.Zero, in guid, index, out diData))
             {
-                uint size;
-
                 // Get Device Buffer Size
-                SetupDiGetDeviceInterfaceDetail(hDevInfo, in diData, IntPtr.Zero, 0, out size, IntPtr.Zero);
+                SetupDiGetDeviceInterfaceDetail(hDevInfo, in diData, IntPtr.Zero, 0, out uint size, IntPtr.Zero);
 
                 // Create Detail Struct
                 SP_DEVICE_INTERFACE_DETAIL_DATA diDetail = SP_DEVICE_INTERFACE_DETAIL_DATA.Create();
 
                 SP_DEVINFO_DATA deviceInfoData = SP_DEVINFO_DATA.Create();
-
+                
                 // Populate Detail Struct
                 if (SetupDiGetDeviceInterfaceDetail(hDevInfo, in diData, ref diDetail, size, out size, out deviceInfoData))
                 {
-                    // Open read/write handle
-                    handle = CreateFile(diDetail.devicePath, FileAccess.ReadWrite, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, EFileAttributes.Overlapped, IntPtr.Zero);
+                    GetBtDeviceInfo(deviceInfoData, out string deviceName, out BtStack associatedStack);
 
-                    // Create Attributes Structure
-                    HIDD_ATTRIBUTES attrib = new HIDD_ATTRIBUTES();
-                    attrib.Size = Marshal.SizeOf(attrib);
-
-                    // Populate Attributes
-                    if (HidD_GetAttributes(handle, out attrib))
+                    ControllerType type;
+                    if (IsCompatibleBluetoothDevice(deviceName, out type)
+                        || IsCompatibleHidDevice(diDetail, out type))
                     {
-                        // Check if this is a compatable device
-                        if (attrib.VendorID == 0x057e && (attrib.ProductID == 0x0306 || attrib.ProductID == 0x0330))
+                        result.Add(new DeviceInfo
                         {
-                            // TODO: Debug
-                            //var associatedStack = CheckBtStack(deviceInfoData);
-                            //var associatedStack = BtStack.Microsoft;
-
-                            //var associatedStack = BluetoothEnableDiscovery(IntPtr.Zero, true) ? BtStack.Microsoft : BtStack.Toshiba;
-                            //
-                            //if (!AssociatedStack.ContainsKey(diDetail.devicePath))
-                            //{
-                            //    AssociatedStack.Add(diDetail.devicePath, associatedStack);
-                            //}
-
-                            result.Add(new DeviceInfo
-                            {
-                                DevicePath = diDetail.devicePath,
-                                Type = attrib.ProductID == 0x0330 ? ControllerType.ProController : ControllerType.Wiimote
-                            });
-                        }
+                            DevicePath = diDetail.devicePath,
+                            Type = type
+                        });
                     }
-
-                    handle.Close();
                 }
                 else
                 {
@@ -137,6 +113,57 @@ namespace WiitarThing
             return result;
         }
 
+        const uint PID_WIIMOTE = 0x0306; // Wii Remote / Wii Remote Plus (1st gen)
+        const uint PID_WIIMOTE_2ND_GEN = 0x0330; // Wii Remote Plus (2nd gen, aka "-TR") / Wii U Pro Controller
+
+        public static bool IsCompatibleHidDevice(SP_DEVICE_INTERFACE_DETAIL_DATA diDetail, out ControllerType type)
+        {
+            type = ControllerType.Unknown;
+            bool result = false;
+
+            // Open read/write handle
+            SafeFileHandle handle = CreateFile(diDetail.devicePath, FileAccess.ReadWrite, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, EFileAttributes.Overlapped, IntPtr.Zero);
+
+            // Create Attributes Structure
+            HIDD_ATTRIBUTES attrib = new HIDD_ATTRIBUTES();
+            attrib.Size = Marshal.SizeOf(attrib);
+
+            // Populate Attributes
+            if (HidD_GetAttributes(handle, out attrib))
+            {              
+                // Check if this is a compatable device
+                if (attrib.VendorID == 0x057e && (attrib.ProductID == PID_WIIMOTE || attrib.ProductID == PID_WIIMOTE_2ND_GEN))
+                {
+                    // According to WiiBrew, the Wii U Pro Controller uses the same VID/PID as the Wiimote+ (2nd gen), so we cannot differentiate them
+                    type = ControllerType.Wiimote;
+                    result = true;
+                }
+            }
+
+            handle.Close();
+
+            return result;
+        }
+
+        public static bool IsCompatibleBluetoothDevice(string deviceName, out ControllerType type)
+        {
+            type = ControllerType.Unknown;
+            if (deviceName != null && deviceName.StartsWith("Nintendo RVL-CNT-01"))
+            {
+                type = deviceName.StartsWith("Nintendo RVL-CNT-01-UC")
+                    ? ControllerType.ProController // Wii U Pro Controller
+                    : ControllerType.Wiimote; // "Nintendo RVL-CNT-01" [Wii Remote / Remote Plus (1st gen)] / "Nintendo RVL-CNT-01-TR" [Wii Remote Plus (2nd gen)]
+                return true;
+            }
+            return false;
+        }
+
+        private static readonly DEVPROPKEY DEVPKEY_Device_BusReportedDeviceDesc = new DEVPROPKEY
+        {
+            fmtid = new Guid(0x540b947e, 0x8b40, 0x45bc, 0xa8, 0xa2, 0x6a, 0x0b, 0x89, 0x4c, 0xbd, 0xa2),
+            pid = 4
+        };
+
         private static readonly DEVPROPKEY DEVPKEY_Device_DriverProvider = new DEVPROPKEY
         {
             // DEVPROP_TYPE_STRING
@@ -144,68 +171,59 @@ namespace WiitarThing
             pid = 9
         };
 
-        public static BtStack CheckBtStack(SP_DEVINFO_DATA data)
+        private static readonly Guid GUID_HID_Setup_Class = new Guid(0x745a17a0, 0x74d3, 0x11d0, 0xb6, 0xfe, 0x00, 0xa0, 0xc9, 0x0f, 0x57, 0xda);
+
+        public static void GetBtDeviceInfo(SP_DEVINFO_DATA data, out string deviceName, out BtStack btStack)
         {
             // Assume it is the Microsoft Stack
-            BtStack resultStack = BtStack.Microsoft;
+            btStack = BtStack.Microsoft;
+            deviceName = null;
+
             SP_DEVINFO_DATA parentData = SP_DEVINFO_DATA.Create();
 
-            int status = 0;
-            int problemNum = 0;
+            var result = CM_Get_DevNode_Status(out int status, out int problemNum, (int)data.DevInst, 0);
+            if (result != 0) return; // Failed
 
-            var result = CM_Get_DevNode_Status(out status, out problemNum, (int)data.DevInst, 0);
-
-            if (result != 0) return resultStack; // Failed
-
-            uint parentDevice;
-
-            result = CM_Get_Parent(out parentDevice, data.DevInst, 0);
-
-            if (result != 0) return resultStack; // Failed
+            result = CM_Get_Parent(out uint parentDevice, data.DevInst, 0);
+            if (result != 0) return; // Failed
 
             StringBuilder parentId = new StringBuilder(200);
-
             result = CM_Get_Device_ID(parentDevice, parentId, parentId.Capacity, 0);
+            if (result != 0) return; // Failed
+            string parentIdString = parentId.ToString();
 
-            if (result != 0) return resultStack; // Failed
+            var parentDeviceInfo = SetupDiCreateDeviceInfoList(in GUID_HID_Setup_Class, IntPtr.Zero);
+            if (parentDeviceInfo.IsInvalid) return; // Failed
 
-            string id = parentId.ToString();
-
-            Guid g = Guid.Empty;
-            HidD_GetHidGuid(out g);
-            var parentDeviceInfo = SetupDiCreateDeviceInfoList(in g, IntPtr.Zero);
-
-            // TODO: This fails, something not right
-            bool success = SetupDiOpenDeviceInfo(parentDeviceInfo, id, IntPtr.Zero, 0, out parentData);
-
-            if (success)
+            if (SetupDiOpenDeviceInfo(parentDeviceInfo, parentIdString, IntPtr.Zero, 0, out parentData))
             {
-                int requiredSize = 0;
-                ulong devicePropertyType;
+                deviceName = GetDevicePropertyString(parentDeviceInfo, parentData, DEVPKEY_Device_BusReportedDeviceDesc);
 
-                SetupDiGetDeviceProperty(parentDeviceInfo, parentData, DEVPKEY_Device_DriverProvider, out devicePropertyType, null, 0, out requiredSize, 0);
-
-                StringBuilder buffer = new StringBuilder(requiredSize);
-                success = SetupDiGetDeviceProperty(parentDeviceInfo, parentData, DEVPKEY_Device_DriverProvider, out devicePropertyType, buffer, requiredSize, out requiredSize, 0);
-
-                if (success)
+                string driverProvider = GetDevicePropertyString(parentDeviceInfo, parentData, DEVPKEY_Device_DriverProvider);
+                if (driverProvider == "TOSHIBA")
                 {
-                    string classProvider = buffer.ToString();
-                    if (classProvider == "TOSHIBA")
-                    {
-                        // Toshiba Stack
-                        resultStack = BtStack.Toshiba;
-                    }
+                    // Toshiba Stack
+                    btStack = BtStack.Toshiba;
                 }
-            }
-            else
-            {
-                var error = Marshal.GetLastWin32Error();
             }
 
             parentDeviceInfo.Dispose();
+        }
 
-            return resultStack;
+        private static string GetDevicePropertyString(SafeDeviceInfoListHandle devInfoHandle, SP_DEVINFO_DATA deviceInfoData, in DEVPROPKEY propertyKey)
+        {
+            SetupDiGetDeviceProperty(devInfoHandle, deviceInfoData, propertyKey, out ulong propertyType, null, 0, out int requiredSize, 0);
+            if (requiredSize <= 0)
+            {
+                return null;
+            }
+
+            var buffer = new StringBuilder(requiredSize);
+            if (!SetupDiGetDeviceProperty(devInfoHandle, deviceInfoData, propertyKey, out propertyType, buffer, requiredSize, out requiredSize, 0))
+            {
+                return null;
+            }
+            return buffer.ToString();
         }
     }
 }

@@ -41,7 +41,7 @@ If you're updating from v2.7.0 or earlier, you should uninstall the ScpDriver th
 
 Once your wiimote has been synced, you shouldn't have to sync it again, and can simply power it on and hit Connect. Some Bluetooth receivers don't handle this properly though, and may not correctly save the pairing.
 
-Please note that third-party wiimotes do not work 99% of the time. This is not something WiitarThing can solve, as a majority of third-party wiimotes cut corners and only implement enough of the Bluetooth stack to connect to a Wii, and cannot connect to a PC in any capacity.
+Please note that third-party wiimotes might not work. This is not something WiitarThing can solve, as a majority of third-party wiimotes cut corners and only implement enough of the Bluetooth stack to connect to a Wii, and cannot connect to a PC in any capacity.
 
 ### Calibrating Guitars
 

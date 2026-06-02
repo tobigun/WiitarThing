@@ -316,7 +316,7 @@ namespace WiitarThing
             in SP_DEVINFO_DATA DeviceInfoData,
             in DEVPROPKEY PropertyKey,
             out ulong PropertyType,
-            [MarshalAs(UnmanagedType.LPStr)] StringBuilder PropertyBuffer,
+            [MarshalAs(UnmanagedType.LPWStr)] StringBuilder PropertyBuffer,
             int PropertyBufferSize,
             out int RequiredSize,
             uint Flags);
