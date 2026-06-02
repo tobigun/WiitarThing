@@ -141,7 +141,7 @@ namespace NintrollerLib
 
             if (offset > 0)
             {
-
+                /*
                 bool whichBit1 = (data[offset + 2] & 0x20) == 0;
                 bool whichBit2 = (data[offset + 2] & 0x10) == 0;
                 bool whichBit3 = (data[offset + 2] & 0x08) == 0;
@@ -155,7 +155,8 @@ namespace NintrollerLib
                 B = whichBit1 && !whichBit2 && !whichBit3 && !whichBit4 && !whichBit5;// && (data[offset + 5] & 0x08) == 0;
                 O = whichBit1 && !whichBit2 && !whichBit3 && !whichBit4 && whichBit5;// && (data[offset + 5] & 0x80) == 0;
                 Bass = !whichBit1 && !whichBit2 && whichBit3 && !whichBit4 && !whichBit5;// && (data[offset + 5] & 0x04) == 0;
-        
+                */
+
                 /*if(whichBit1 || whichBit2 || whichBit3 || whichBit4 || whichBit5) {         
                   Console.WriteLine("RAW: "
                     + (!whichBit1 && !whichBit2 && whichBit3 && whichBit4 && !whichBit5 ? "R" : "")
@@ -173,6 +174,16 @@ namespace NintrollerLib
                     + "." + ((data[offset + 3] & 0x20) == 0)
                   );
                 }*/
+
+                // Using the midi data (velocity or note) will cause missing notes in GHWT DE.
+                // Use button information instead, even if fast inputs might not be detected correctly.
+
+                G = (data[offset + 5] & 0x10) == 0;
+                R = (data[offset + 5] & 0x40) == 0;
+                Y = (data[offset + 5] & 0x20) == 0;
+                B = (data[offset + 5] & 0x08) == 0;
+                O = (data[offset + 5] & 0x80) == 0;
+                Bass = (data[offset + 5] & 0x04) == 0;
 
                 //ZR = (data[offset + 5] & 0x04) == 0;
                 Plus = (data[offset + 4] & 0x04) == 0;
