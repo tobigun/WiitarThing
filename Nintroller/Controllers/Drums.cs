@@ -28,6 +28,11 @@ namespace NintrollerLib
             public const string SELECT = "drmSELECT";
             public const string START = "drmSTART";
             public const string HOME = "drmHOME";
+
+            public const string BTN_A = "drmBtnA";
+            public const string BTN_B = "drmBtnB";
+            public const string ONE = "drm1";
+            public const string TWO = "drm2";
         }
 
         private bool SpecialButtonSelect => wiimote.buttons.A;
@@ -56,7 +61,8 @@ namespace NintrollerLib
         public Joystick Joy;
         public bool G, R, Y, B, O, Bass;
         public bool Up, Down, Left, Right;
-        public bool Plus, Minus;
+        public bool Plus, Minus, Home;
+        public bool BtnA, BtnB, One, Two;
 
 #if DEBUG
         public byte[] DebugLastData;
@@ -171,7 +177,7 @@ namespace NintrollerLib
                 //ZR = (data[offset + 5] & 0x04) == 0;
                 Plus = (data[offset + 4] & 0x04) == 0;
                 Minus = (data[offset + 4] & 0x10) == 0;
-                //Home = (data[offset + 4] & 0x08) == 0;
+                Home = (data[offset + 4] & 0x08) == 0;
 
                 // Dpad
                 Up = (data[offset + 5] & 0x01) == 0;
@@ -306,10 +312,15 @@ namespace NintrollerLib
             else if (wiimote.buttons.Left)
                 Up = true;
 
-            // A on the actual wiimote
-            if (SpecialButtonSelect)
-                Select = true;
-            
+            if (wiimote.buttons.Plus)
+                Plus = true;
+            if (wiimote.buttons.Minus)
+                Minus = true;
+
+            BtnA = wiimote.buttons.A;
+            BtnB = wiimote.buttons.B;
+            One = wiimote.buttons.One;
+            Two = wiimote.buttons.Two;
 #endif
 
 
@@ -506,6 +517,12 @@ namespace NintrollerLib
 
             yield return new KeyValuePair<string, float>(InputNames.START, Start ? 1.0f : 0.0f);
             yield return new KeyValuePair<string, float>(InputNames.SELECT, Select ? 1.0f : 0.0f);
+            yield return new KeyValuePair<string, float>(InputNames.HOME, Home ? 1.0f : 0.0f);
+
+            yield return new KeyValuePair<string, float>(InputNames.BTN_A, BtnA ? 1.0f : 0.0f);
+            yield return new KeyValuePair<string, float>(InputNames.BTN_B, BtnB ? 1.0f : 0.0f);
+            yield return new KeyValuePair<string, float>(InputNames.ONE, One ? 1.0f : 0.0f);
+            yield return new KeyValuePair<string, float>(InputNames.TWO, Two ? 1.0f : 0.0f);
         }
 
         IEnumerator IEnumerable.GetEnumerator()

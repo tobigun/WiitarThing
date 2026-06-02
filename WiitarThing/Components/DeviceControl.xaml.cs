@@ -534,6 +534,12 @@ namespace WiitarThing
 
                     holder.SetValue(Drums.InputNames.START, drm.Start);
                     holder.SetValue(Drums.InputNames.SELECT, drm.Select);
+                    holder.SetValue(Drums.InputNames.HOME, drm.Home);
+
+                    holder.SetValue(Drums.InputNames.BTN_A, drm.BtnA);
+                    holder.SetValue(Drums.InputNames.BTN_B, drm.BtnB);
+                    holder.SetValue(Drums.InputNames.ONE, drm.One);
+                    holder.SetValue(Drums.InputNames.TWO, drm.Two);
 #endregion
                 break;
 

@@ -330,6 +330,11 @@ namespace WiitarThing.Holders
                     result.Add(Drums.InputNames.SELECT, Inputs.Xbox360.BACK);
                     result.Add(Drums.InputNames.START, Inputs.Xbox360.START);
                     result.Add(Drums.InputNames.HOME, Inputs.Xbox360.GUIDE);
+
+                    result.Add(Drums.InputNames.BTN_A, Inputs.Xbox360.LS);
+                    result.Add(Drums.InputNames.BTN_B, Inputs.Xbox360.RS);
+                    result.Add(Drums.InputNames.ONE, Inputs.Xbox360.LT);
+                    result.Add(Drums.InputNames.TWO, Inputs.Xbox360.RT);
                     break;
 
                 case ControllerType.Turntable:
